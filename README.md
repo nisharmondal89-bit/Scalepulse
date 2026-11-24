@@ -2,7 +2,10 @@
 
 An end-to-end, containerized reference platform demonstrating production reliability patterns across **PostgreSQL, Redis, background workers, progressive canary delivery, and SLO-driven observability**.
 
-(docs/scalepulse_prometheus.png)
+
+## Live Observability (Prometheus)
+
+![Scalepulse Prometheus Observability](docs/scalepulse_prometheus.png)
 
 ## Architecture Overview
 ```text
