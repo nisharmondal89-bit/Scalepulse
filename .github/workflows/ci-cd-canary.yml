@@ -1,0 +1,40 @@
+name: Production Pipeline (Lint, Migrate, Canary & Rollback)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+
+jobs:
+  verify-and-canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Static Migration Safety Lintar
+        run: |
+          if grep -rn "DROP TABLE\|ALTER TABLE.*TYPE" app/db_migrate.py; then
+        echo "ERROR: Destructive or table-locking DDL detected!"
+        exit 1
+        fi
+        echo "DDL safety check passed"
+
+      - name: Boot Production Stack & Run Safe Migration
+        run: |
+          docker compose up -d --build
+          sleep 5
+          docker compose logs migrator
+
+      - name: Smoke Test & Canary SLO verification
+        run: |
+          for i in {1..20}; do
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8080/events?tenant_id=acme&payload=test-$i")
+        if [ "$STATUS" -ne 200 ]; then
+        echo "SLO Breach detected (HTTP $STATUS)! Triggering automated rollback.."
+        docker compose stop api-canary
+        exit 1
+        fi
+        done
+        echo "Canary passed 100% availability SLO"
+

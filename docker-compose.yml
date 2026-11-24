@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: scalepulse
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+
+  migrator:
+    build: .
+    command: python db_migrate.py
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api-stable:
+    build: .
+    environment:
+      APP_VERSION: "v1.0-stable"
+    depends_on:
+      - migrator
+      - redis
+
+  api-canary:
+    build: .
+    environment:
+      APP_VERSION: "v1.1-canary"
+      CANARY_FAIL: "false"
+    depends_on:
+      - migrator
+      - redis
+
+  worker:
+    build: .
+    command: python worker.py
+    depends_on:
+      - migrator
+      - redis
+
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-stable
+      - api-canary
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro

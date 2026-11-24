@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 5s
+
+
+scrape_configs:
+  - job_name: "scalepulse-api"
+    static_configs:
+      - targets: ["api-stable:8000", "api-canary:8000"]
+
+
